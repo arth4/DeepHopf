@@ -4,6 +4,8 @@ from NudgeEnviroment import HopfieldNudgeEnvironment
 from utils import plot_multiple, ParseKwargs, ProgressBar
 import sys
 import pickle as pkl
+import time
+import pandas as pd
 def run(environment, agent, n_episodes, max_step_per_episode, combination=1, test=False):
     """
     Train agent for n_episodes
@@ -28,6 +30,7 @@ def run(environment, agent, n_episodes, max_step_per_episode, combination=1, tes
             states, terminal, reward = environment.execute(actions=actions)
             #print("reward", reward)
             agent.observe(terminal=terminal, reward=reward)
+        #print("episode_final_length", episode_length)
         progress_bar.update()
     progress_bar.close()
     return environment.last_reward
@@ -77,50 +80,53 @@ def runner(
     agent.close()
     environment.close
 
-def main(agent_params={}, env_type="hopf", enviroment_params={}, n_episodes=10000, max_step_per_episode=1000):
-    default_agent_params = dict(
-    agent='ppo', environment=HopfieldEnvironment, max_episode_timesteps=1000,
-    batch_size=10, update_frequency=20, learning_rate=1e-3, subsampling_fraction=0.2,
-    optimization_steps=100,
-    # Network
-    network=dict(type='auto', size=64, depth=8),
-    # Reward estimation
-    likelihood_ratio_clipping=0.2, discount=1.0, estimate_terminal=False,
-    # Critic
-    critic_network='auto',
-    critic_optimizer=dict(optimizer='adam', multi_step=30, learning_rate=1e-3),
-    # Preprocessing
-    preprocessing=None,
-    # Exploration
-    exploration=0.01, variable_noise=0.0,
-    # Regularization
-    l2_regularization=0.1, entropy_regularization=0.1,
-    # TensorFlow etc
-    name='agent', device=None, parallel_interactions=1, seed=None, execution=None, saver=None,
-    summarizer=None, recorder=None,
-)
-    if env_type == "hopf":
-        environment = HopfieldEnvironment(**enviroment_params)
-    elif env_type == "hopf-nudge":
-        environment = HopfieldNudgeEnvironment(**enviroment_params)
-    else:
-        raise ValueError(f"Unknown environment type: {(env_type)}")
-    
-    agent_params = {**default_agent_params, **agent_params}
-    agent_params["environment"] = environment
-    agent = Agent.create(**agent_params)
-    runner(environment, agent, max_step_per_episode, n_episodes)
+def main(agent_params={}, env_type="hopf", enviroment_params={}, n_episodes=10000, max_step_per_episode=1000, repeats=1):
+    for rep in range(repeats):
+        print(f"Repeat {rep}")
+        default_agent_params = dict(
+        agent='ppo', environment=HopfieldEnvironment, max_episode_timesteps=1000,
+        batch_size=10, update_frequency=10, learning_rate=1e-3, subsampling_fraction=0.2,
+        #optimization_steps=100,
+        ## Network
+        network=dict(type='auto', size=64, depth=8),
+        ## Reward estimation
+        #likelihood_ratio_clipping=0.2, discount=1.0, estimate_terminal=False,
+        ## Critic
+        #critic_network='auto',
+        #critic_optimizer=dict(optimizer='adam', multi_step=30, learning_rate=1e-3),
+        ## Preprocessing
+        #preprocessing=None,
+        ## Exploration
+        #exploration=0.01, variable_noise=0.0,
+        ## Regularization
+        #l2_regularization=0.1, entropy_regularization=0.1,
+        ## TensorFlow etc
+        #name='agent', device=None, parallel_interactions=1, seed=None, execution=None, saver=None,
+        #summarizer=None, recorder=None,
+    )
+        if env_type == "hopf":
+            environment = HopfieldEnvironment(**enviroment_params)
+        elif env_type == "hopf-nudge":
+            environment = HopfieldNudgeEnvironment(**enviroment_params)
+        else:
+            raise ValueError(f"Unknown environment type: {(env_type)}")
+        
+        agent_params = {**default_agent_params, **agent_params}
+        agent_params["environment"] = environment
+        agent = Agent.create(**agent_params)
+        runner(environment, agent, max_step_per_episode, n_episodes)
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser("Hopfield Spins")
-    parser.add_argument("--n_episodes", type=int, default=10000)
-    parser.add_argument("--max_step_per_episode", type=int, default=1000)
+    parser.add_argument("-n", "--n_episodes", type=int, default=10000)
+    parser.add_argument("-mspe", "--max_step_per_episode", type=int, default=1000)
     parser.add_argument("--env_type", type=str, choices=["hopf", "hopf-nudge"], default="hopf")
     parser.add_argument("-a", "--agent-param", action=ParseKwargs, default={})
     parser.add_argument("-e", "--env-param", action=ParseKwargs, default={})
+    parser.add_argument("-r", "--repeats", type=int, default=1)
     args = parser.parse_args()
     print(args)
-    main(args.agent_param, args.env_type, args.env_param, args.n_episodes, args.max_step_per_episode)
+    main(args.agent_param, args.env_type, args.env_param, args.n_episodes, args.max_step_per_episode, args.repeats)
 
 
