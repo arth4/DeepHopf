@@ -95,6 +95,7 @@ def main(agent_params={}, env_type="hopf", enviroment_params={}, n_episodes=30, 
         output_dir = path.join(output_dir, f"repeat_{repeat}")
         mkdir(output_dir)
     eval_record = []
+    np.random.seed(repeat if repeat > -1 else 0)
 
     def eval_callback(runner):
         mean = np.mean(runner.evaluation_returns[-0:])
@@ -114,81 +115,80 @@ def main(agent_params={}, env_type="hopf", enviroment_params={}, n_episodes=30, 
         return True
 
     save_callback.i = 0
-    for rep in range(repeats):
-        output_fn = output_dir
+    output_fn = output_dir
 
-        """
-        default_agent_params = dict(
-        agent='ppo', environment=HopfieldEnvironment, max_episode_timesteps=1000,
-        batch_size=10, update_frequency=10, learning_rate=1e-3, subsampling_fraction=0.2,
-        #optimization_steps=100,
-        ## Network
-        network=dict(type='auto', size=64, depth=8),
-        ## Reward estimation
-        #likelihood_ratio_clipping=0.2, discount=1.0, estimate_terminal=False,
-        ## Critic
-        #critic_network='auto',
-        #critic_optimizer=dict(optimizer='adam', multi_step=30, learning_rate=1e-3),
-        ## Preprocessing
-        #preprocessing=None,
-        ## Exploration
-        #exploration=0.01, variable_noise=0.0,
-        ## Regularization
-        #l2_regularization=0.1, entropy_regularization=0.1,
-        ## TensorFlow etc
-        #name='agent', device=None, parallel_interactions=1, seed=None, execution=None, saver=None,
-        #summarizer=None, recorder=None,
-        )
-        """
-        default_agent_params = dict(
-        agent='ppo', environment=HopfieldEnvironment, max_episode_timesteps=1000,
-        # Automatically configured network
-        network='auto',
-        # PPO optimization parameters
-        batch_size=50, update_frequency=2, learning_rate=3e-4, multi_step=10,
-        subsampling_fraction=0.33,
-        # Reward estimation
-        likelihood_ratio_clipping=0.2, discount=0.99, predict_terminal_values=False,
-        reward_processing=None,
-        # Baseline network and optimizer
-        baseline=dict(type='auto', size=32, depth=4),
-        baseline_optimizer=dict(optimizer='adam', learning_rate=1e-3, multi_step=10),
-        # Regularization
-        l2_regularization=0.0, entropy_regularization=0.0,
-        # Preprocessing
-        state_preprocessing='linear_normalization',
-        # Exploration
-        exploration=0.05, variable_noise=0.0,
-        # Default additional config values
-        config=None,
+    """
+    default_agent_params = dict(
+    agent='ppo', environment=HopfieldEnvironment, max_episode_timesteps=1000,
+    batch_size=10, update_frequency=10, learning_rate=1e-3, subsampling_fraction=0.2,
+    #optimization_steps=100,
+    ## Network
+    network=dict(type='auto', size=64, depth=8),
+    ## Reward estimation
+    #likelihood_ratio_clipping=0.2, discount=1.0, estimate_terminal=False,
+    ## Critic
+    #critic_network='auto',
+    #critic_optimizer=dict(optimizer='adam', multi_step=30, learning_rate=1e-3),
+    ## Preprocessing
+    #preprocessing=None,
+    ## Exploration
+    #exploration=0.01, variable_noise=0.0,
+    ## Regularization
+    #l2_regularization=0.1, entropy_regularization=0.1,
+    ## TensorFlow etc
+    #name='agent', device=None, parallel_interactions=1, seed=None, execution=None, saver=None,
+    #summarizer=None, recorder=None,
+    )
+    """
+    default_agent_params = dict(
+    agent='ppo', environment=HopfieldEnvironment, max_episode_timesteps=1000,
+    # Automatically configured network
+    network='auto',
+    # PPO optimization parameters
+    batch_size=50, update_frequency=2, learning_rate=3e-4, multi_step=10,
+    subsampling_fraction=0.33,
+    # Reward estimation
+    likelihood_ratio_clipping=0.2, discount=0.99, predict_terminal_values=False,
+    reward_processing=None,
+    # Baseline network and optimizer
+    baseline=dict(type='auto', size=32, depth=4),
+    baseline_optimizer=dict(optimizer='adam', learning_rate=1e-3, multi_step=10),
+    # Regularization
+    l2_regularization=0.0, entropy_regularization=0.0,
+    # Preprocessing
+    state_preprocessing='linear_normalization',
+    # Exploration
+    exploration=0.05, variable_noise=0.0,
+    # Default additional config values
+    config=None,
 
-        # Do not record agent-environment interaction trace
-        recorder=None
-        )
-        if env_type == "hopf":
-            environment = HopfieldEnvironment(**enviroment_params)
-        elif env_type == "hopf-nudge":
-            environment = HopfieldNudgeEnvironment(**enviroment_params)
-        else:
-            raise ValueError(f"Unknown environment type: {(env_type)}")
-        
-        agent_params = {**default_agent_params, **agent_params}
-        agent_params["environment"] = environment
-        agent = Agent.create(**agent_params)
-        environment._set_max_actions(max_step_per_episode)
+    # Do not record agent-environment interaction trace
+    recorder=None
+    )
+    if env_type == "hopf":
+        environment = HopfieldEnvironment(**enviroment_params)
+    elif env_type == "hopf-nudge":
+        environment = HopfieldNudgeEnvironment(**enviroment_params)
+    else:
+        raise ValueError(f"Unknown environment type: {(env_type)}")
+    
+    agent_params = {**default_agent_params, **agent_params}
+    agent_params["environment"] = environment
+    agent = Agent.create(**agent_params)
+    environment._set_max_actions(max_step_per_episode)
 
-        runner = Runner(agent=agent, environment=environment)
-        for b in range(n_batches):
-            print(f"Batch {b}")
-            runner.run(num_episodes=n_episodes, callback=save_callback)
-            print(f"Batch {b} test")
-            runner.run(num_episodes=n_test, evaluation=True, evaluation_callback=eval_callback)
-            df.to_csv(path.join(output_dir, "results.csv"))
-        runner.close()
-        np.save(output_fn + "_eval.npy", eval_record)
-        """
-        my_runner(environment, agent, max_step_per_episode, n_episodes)
-        """
+    runner = Runner(agent=agent, environment=environment)
+    for b in range(n_batches):
+        print(f"Batch {b}")
+        runner.run(num_episodes=n_episodes, callback=save_callback)
+        print(f"Batch {b} test")
+        runner.run(num_episodes=n_test, evaluation=True, evaluation_callback=eval_callback)
+        df.to_csv(path.join(output_dir, "results.csv"))
+    runner.close()
+    np.save(output_fn + "_eval.npy", eval_record)
+    """
+    my_runner(environment, agent, max_step_per_episode, n_episodes)
+    """
 
 if __name__ == "__main__":
     import argparse
@@ -204,6 +204,6 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", type=str, default=None)
     args = parser.parse_args()
     print(args)
-    main(args.agent_param, args.env_type, args.env_param, args.n_episodes, args.n_batches, args.n_test, args.max_step_per_episode, args.repeats, args.output)
+    main(args.agent_param, args.env_type, args.env_param, args.n_episodes, args.n_batches, args.n_test, args.max_step_per_episode, args.repeat, args.output)
 
 
