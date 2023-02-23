@@ -1,15 +1,19 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from math import sqrt
 
 from functools import lru_cache, wraps
 from tensorforce.environments import Environment
+from os import path
 
 
 class HopfieldEnvironment(Environment):
     max_actions = 1000
-    def __init__(self, size=10, weights=None):
+    def __init__(self, size=10, weights=None, symmetric=False):
         self.size = size
         self.weights = weights if weights is not None else np.random.normal(size=(size, size))
+        if symmetric:
+            self.weights = (self.weights + self.weights.T) / 2
         self.weights = self.normalize(self.weights)
         self.reset()
         super().__init__()
@@ -22,6 +26,26 @@ class HopfieldEnvironment(Environment):
     def index2coord(self, index):
         return (index % self.size, index // self.size)
 
+    def save(self, fn):
+        state_info = np.array(sorted(list(self._state_dict.values()), key=lambda x: x[3]))
+        np.savez(fn, weights=self.weights, state=state_info, last_reward=self.last_reward, action_count=self.action_count)
+        
+    def coord2id(self, coord):
+        assert coord in self._state_dict, f"coord {coord} not in state_dict!!!! \n {self._state_dict}"
+        return self._state_dict[coord][3]
+
+    @classmethod
+    def load(cls, fn):
+        data = np.load(fn)
+        size = data["weights"].shape[0]
+        env = cls(size=size, weights=data["weights"])
+        env._state_dict = {(i, j): [i, j, angle, id] for (i, j, angle, id) in data["state"]}
+        env.cached_state = None
+        env.dirty_implicit_weights = set()
+        env.last_reward = data["last_reward"]
+        env.action_count = data["action_count"]
+        return env
+
     def swap(self, i, j, angle):
         """Swaps pos of i and j and rotates i by angle"""
         self.cached_state = None
@@ -29,11 +53,13 @@ class HopfieldEnvironment(Environment):
         j_coord = self.index2coord(j) if np.isscalar(j) else tuple(j)
 
         assert i_coord in self._state_dict, f"i {i} -> {i_coord} not in state_dict!!!! \n {self._state_dict}"
+        self.dirty_implicit_weights.add(self.coord2id(i_coord))
         if i_coord != j_coord:
             if j not in self._state_dict:
                 self._state_dict[j_coord] = list(j_coord) + self._state_dict[i_coord][2:]
                 del self._state_dict[i_coord]
             else:
+                self.dirty_implicit_weights.add(self.coord2id(j_coord))
                 self._state_dict[i_coord][2:], self._state_dict[j_coord][2:] = self._state_dict[j_coord][2:], self._state_dict[i_coord][2:]
         self._state_dict[j_coord][2] = (self._state_dict[j_coord][2] + angle) % np.pi 
 
@@ -139,7 +165,7 @@ class HopfieldEnvironment(Environment):
             return 0
         r = self.state[j][:2] - self.state[i][:2]
         m = self.m
-        dist = np.linalg.norm(r)
+        dist = sqrt(r.dot(r)) 
         h_dip_1 = -m[j] / dist**3
         h_dip_2 = 3 * r * m[j].dot(r) / dist**5
         h_dip = h_dip_1 + h_dip_2
