@@ -87,11 +87,13 @@ def my_runner(
 
 def main(agent_params={}, env_type="hopf", enviroment_params={}, n_episodes=30, n_batches=3, n_test=1, max_step_per_episode=1000, repeat=-1, output_dir=None):
     assert output_dir is not None
-    if repeat in [-1, 0]:
+    if repeat in [-1]:
         assert not path.exists(output_dir)
         mkdir(output_dir)
+    
     if repeat > -1:
-        assert path.exists(output_dir)
+        if not path.exists(output_dir):
+            mkdir(output_dir)
         output_dir = path.join(output_dir, f"repeat_{repeat}")
         mkdir(output_dir)
     eval_record = []
