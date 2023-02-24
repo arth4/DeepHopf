@@ -9,11 +9,13 @@ from os import path
 
 class HopfieldEnvironment(Environment):
     max_actions = 1000
-    def __init__(self, size=10, weights=None, symmetric=False):
+    def __init__(self, size=10, weights=None, symmetric=False, self_connections=False):
         self.size = size
         self.weights = weights if weights is not None else np.random.normal(size=(size, size))
         if symmetric:
             self.weights = (self.weights + self.weights.T) / 2
+        if not self_connections:
+            np.fill_diagonal(self.weights, 0)
         self.weights = self.normalize(self.weights)
         self.reset()
         super().__init__()
