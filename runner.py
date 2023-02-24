@@ -92,10 +92,15 @@ def main(agent_params={}, env_type="hopf", enviroment_params={}, n_episodes=30, 
         mkdir(output_dir)
     
     if repeat > -1:
-        if not path.exists(output_dir):
+        try:
             mkdir(output_dir)
+        except FileExistsError:
+            pass
         output_dir = path.join(output_dir, f"repeat_{repeat}")
-        mkdir(output_dir)
+        try:
+            mkdir(output_dir)
+        except FileExistsError:
+            pass
     eval_record = []
     np.random.seed(repeat if repeat > -1 else 0)
 
